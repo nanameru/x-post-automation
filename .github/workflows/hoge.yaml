@@ -2,11 +2,20 @@ name: X Auto Post GitHub Trending
 
 on:
   schedule:
-    # ��6:30UTC 21:30, JST 06:30	
+    # 毎日朝6:30（UTC 21:30, JST 06:30）
     - cron: '30 21 * * *'
-    # ��18:00UTC 09:00, JST 18:00	  
+    # 毎日夜18:00（UTC 09:00, JST 18:00）  
     - cron: '0 9 * * *'
-  workflow_dispatch: # K՟L���
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode (dry run)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'false'
+        - 'true'
 
 permissions:
   contents: read
@@ -39,5 +48,12 @@ jobs:
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
           X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
-        run: node src/auto-post.js
-
+          TEST_MODE: ${{ github.event.inputs.test_mode }}
+        run: |
+          if [ "$TEST_MODE" = "true" ]; then
+            echo "Running in test mode..."
+            node src/test.js
+          else
+            echo "Running in production mode..."
+            node src/auto-post.js
+          fi
