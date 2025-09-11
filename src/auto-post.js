@@ -2,8 +2,6 @@ import puppeteer from 'puppeteer';
 import { Octokit } from '@octokit/rest';
 import OpenAI from 'openai';
 import { TwitterApi } from 'twitter-api-v2';
-import fs from 'fs/promises';
-import path from 'path';
 
 class GitHubTrendingBot {
   constructor() {
@@ -184,75 +182,16 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
     }
   }
 
-  /**
-   * READMEのスクリーンショットを撮影
-   */
-  async takeReadmeScreenshot(repoUrl) {
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
-    try {
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1200, height: 800 });
-      
-      // READMEページに移動
-      await page.goto(repoUrl, { waitUntil: 'networkidle0' });
-      
-      // READMEセクションが表示されるまで待機
-      await page.waitForSelector('article', { timeout: 10000 });
-      
-      // READMEエリアのスクリーンショットを撮影
-      const readmeElement = await page.$('article');
-      if (readmeElement) {
-        const repoName = repoUrl.split('/').pop();
-        const screenshotPath = path.join(process.cwd(), 'screenshots', `${repoName}-readme.png`);
-        
-        await readmeElement.screenshot({
-          path: screenshotPath,
-          type: 'png'
-        });
-        
-        console.log(`📸 Screenshot saved: ${screenshotPath}`);
-        return screenshotPath;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('❌ Error taking screenshot:', error.message);
-      return null;
-    } finally {
-      await browser.close();
-    }
-  }
 
   /**
    * Xにツイートを投稿
    */
-  async postTweet(tweetText, imagePath, repoUrl) {
+  async postTweet(tweetText, repoUrl) {
     try {
-      let mediaId = null;
-      
-      // 画像がある場合はアップロード
-      if (imagePath) {
-        try {
-          const imageBuffer = await fs.readFile(imagePath);
-          const media = await this.twitterClient.v1.uploadMedia(imageBuffer, { mimeType: 'image/png' });
-          mediaId = media;
-        } catch (error) {
-          console.error('❌ Error uploading image:', error.message);
-        }
-      }
-
-      // ツイート投稿
+      // ツイート投稿（テキストのみ）
       const tweetData = {
         text: `${tweetText}\\n\\n🔗 ${repoUrl}`
       };
-
-      if (mediaId) {
-        tweetData.media = { media_ids: [mediaId] };
-      }
 
       const tweet = await this.tweetClient.v2.tweet(tweetData);
       
@@ -301,14 +240,11 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
 
       // 4. ツイート文を生成
       const tweetText = await this.generateTweetText(repoDetails, selectedRepo);
-      
-      // 5. READMEスクリーンショットを撮影
-      const screenshotPath = await this.takeReadmeScreenshot(selectedRepo.url);
 
-      // 6. ツイート投稿
-      await this.postTweet(tweetText, screenshotPath, selectedRepo.url);
+      // 5. ツイート投稿（テキストのみ）
+      await this.postTweet(tweetText, selectedRepo.url);
 
-      // 7. 投稿済みとして記録
+      // 6. 投稿済みとして記録
       await this.recordPostedRepository(selectedRepo.name, selectedRepo.url);
 
       console.log('✅ Process completed successfully!');

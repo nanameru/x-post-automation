@@ -11,10 +11,9 @@ class TestBot extends GitHubTrendingBot {
   }
 
   // テスト用：実際の投稿をスキップ
-  async postTweet(tweetText, imagePath, repoUrl) {
+  async postTweet(tweetText, repoUrl) {
     console.log('🧪 [TEST MODE] Tweet would be posted:');
     console.log('📝 Text:', tweetText);
-    console.log('🖼️ Image:', imagePath || 'No image');
     console.log('🔗 URL:', repoUrl);
     console.log('─'.repeat(50));
     return { data: { id: 'test_tweet_id' } };
