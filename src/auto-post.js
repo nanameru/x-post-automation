@@ -70,7 +70,7 @@ class GitHubTrendingBot {
   async isDuplicateRepository(repoName) {
     try {
       const { data: issues } = await this.octokit.rest.issues.listForRepo({
-        owner: 'kimurataiyou', // リポジトリオーナー名に変更してください
+        owner: 'nanameru',
         repo: 'x-post-automation',
         labels: 'posted',
         state: 'all',
@@ -90,7 +90,7 @@ class GitHubTrendingBot {
   async recordPostedRepository(repoName, repoUrl) {
     try {
       await this.octokit.rest.issues.create({
-        owner: 'kimurataiyou', // リポジトリオーナー名に変更してください
+        owner: 'nanameru',
         repo: 'x-post-automation',
         title: `Posted: ${repoName}`,
         body: `Repository: ${repoUrl}\\nPosted at: ${new Date().toISOString()}`,
@@ -168,14 +168,21 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
 日本語で作成してください。`;
 
     try {
-      const completion = await this.openai.chat.completions.create({
-        model: "gpt-5",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 150,
+      // Use the Responses API (v4 SDK) and supported model
+      const response = await this.openai.responses.create({
+        model: "gpt-4o-mini",
+        input: prompt,
+        max_output_tokens: 150,
         temperature: 0.7
       });
 
-      return completion.choices[0].message.content.trim();
+      const text = (response.output_text || "").trim();
+      if (text) return text;
+      // Fallback if SDK shape changes
+      const choiceText = response?.choices?.[0]?.message?.content?.[0]?.text ||
+                         response?.choices?.[0]?.message?.content || "";
+      if (choiceText) return String(choiceText).trim();
+      return `🔥 GitHubトレンド: ${trendingInfo.name}\n\n${trendingInfo.description}\n\n#GitHub #${trendingInfo.language} #OpenSource`;
     } catch (error) {
       console.error('❌ Error generating tweet text:', error.message);
       return `🔥 GitHubトレンド: ${trendingInfo.name}\\n\\n${trendingInfo.description}\\n\\n#GitHub #${trendingInfo.language} #OpenSource`;
