@@ -171,7 +171,7 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
 
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 150,
         temperature: 0.7
