@@ -144,7 +144,7 @@ class GitHubTrendingBot {
    */
   async generateTweetText(repoDetails, trendingInfo) {
     const prompt = `
-以下のGitHubトレンドリポジトリについて、魅力的なTwitter投稿文を作成してください。
+以下のGitHubトレンドリポジトリについて、カジュアルで魅力的なTwitter投稿文を作成してください。
 
 リポジトリ名: ${trendingInfo.name}
 説明: ${trendingInfo.description}
@@ -155,12 +155,17 @@ URL: ${trendingInfo.url}
 README抜粋:
 ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
 
-要件:
+スタイル要件:
 - 280文字以内
-- 開発者にとって興味深いポイントを強調
+- カジュアルで親しみやすい口調
+- 具体的な魅力や使用事例を強調
+- 「これ○○で圧巻」「○○がありがたい」のような自然な表現
+- 技術的な特徴を分かりやすく説明
 - ハッシュタグを2-3個含める
-- 絵文字を適度に使用
+- 絵文字は控えめに（1-2個程度）
 - URLは含めない（別途添付するため）
+
+参考例: 「これNano-Bananaの活用事例が60個以上まとめてあって圧巻。プロンプトと出力が一覧で見れるのがありがたいですね。」
 
 日本語で作成してください。`;
 
