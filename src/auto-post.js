@@ -206,6 +206,16 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
       return tweet;
     } catch (error) {
       console.error('❌ Error posting tweet:', error.message);
+      // Extra diagnostics for common X API permission issues
+      const headers = error?.headers || error?.data?.headers;
+      const accessLevel = headers?.['x-access-level'] || headers?.['X-Access-Level'];
+      if (error?.code === 403 || error?.data?.status === 403) {
+        const detail = error?.data?.detail || '';
+        if (detail.includes('oauth1') || (accessLevel && String(accessLevel).toLowerCase().includes('read'))) {
+          console.error('🔎 Hint: Your X app/token likely has READ-only permissions.');
+          console.error('➡️  Fix: In X Developer Portal, set App permissions to "Read and write", then re-generate Access Token & Secret and update repo secrets (X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET).');
+        }
+      }
       throw error;
     }
   }
