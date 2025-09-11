@@ -1,0 +1,22 @@
+{
+  "name": "x-post-automation",
+  "version": "1.0.0",
+  "description": "GitHub trending repositories auto posting to X",
+  "main": "src/auto-post.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/auto-post.js",
+    "test": "node src/test.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "@octokit/rest": "^20.0.0", 
+    "openai": "^4.0.0",
+    "twitter-api-v2": "^1.16.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Auto Post Bot",
+  "license": "MIT"
+}
