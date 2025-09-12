@@ -13,14 +13,23 @@ class GitHubTrendingBot {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    this.twitterClient = new TwitterApi({
-      appKey: process.env.X_API_KEY,
-      appSecret: process.env.X_API_SECRET,
-      accessToken: process.env.X_ACCESS_TOKEN,
-      accessSecret: process.env.X_ACCESS_TOKEN_SECRET,
-    });
+    // Prefer OAuth2 user-context token when provided (requires tweet.write scope)
+    if (process.env.X_OAUTH2_ACCESS_TOKEN) {
+      this.twitterClient = new TwitterApi(process.env.X_OAUTH2_ACCESS_TOKEN);
+      this.tweetClient = this.twitterClient; // OAuth2 client already carries scopes
+      console.log('🔐 Using OAuth2 user token for X API');
+    } else {
+      // Fallback to OAuth 1.0a user-context tokens
+      this.twitterClient = new TwitterApi({
+        appKey: process.env.X_API_KEY,
+        appSecret: process.env.X_API_SECRET,
+        accessToken: process.env.X_ACCESS_TOKEN,
+        accessSecret: process.env.X_ACCESS_TOKEN_SECRET,
+      });
 
-    this.tweetClient = this.twitterClient.readWrite;
+      this.tweetClient = this.twitterClient.readWrite;
+      console.log('🔐 Using OAuth1.0a user tokens for X API');
+    }
   }
 
   /**
@@ -209,11 +218,18 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
       // Extra diagnostics for common X API permission issues
       const headers = error?.headers || error?.data?.headers;
       const accessLevel = headers?.['x-access-level'] || headers?.['X-Access-Level'];
+      const detail = error?.data?.detail || error?.data?.title || '';
+      if (accessLevel) console.error(`ℹ️ x-access-level: ${accessLevel}`);
+      if (detail) console.error(`ℹ️ X API detail: ${detail}`);
+
       if (error?.code === 403 || error?.data?.status === 403) {
-        const detail = error?.data?.detail || '';
-        if (detail.includes('oauth1') || (accessLevel && String(accessLevel).toLowerCase().includes('read'))) {
-          console.error('🔎 Hint: Your X app/token likely has READ-only permissions.');
-          console.error('➡️  Fix: In X Developer Portal, set App permissions to "Read and write", then re-generate Access Token & Secret and update repo secrets (X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET).');
+        // Provide targeted hints for both OAuth1.0a and OAuth2 cases
+        if (process.env.X_OAUTH2_ACCESS_TOKEN) {
+          console.error('🔎 Hint: Ensure your X Project is on a tier that allows writing tweets and your OAuth2 token has tweet.write scope.');
+          console.error('➡️  Fix: In X Developer Portal, enable User authentication with Read and write, add tweet.write scope, re-authorize to obtain a new OAuth2 access token, and update X_OAUTH2_ACCESS_TOKEN.');
+        } else {
+          console.error('🔎 Hint: Your OAuth 1.0a app/token may not allow writes.');
+          console.error('➡️  Fix: Set App permissions to "Read and write", then re-generate Access Token & Secret and update X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET. Consider switching to OAuth2 with tweet.write.');
         }
       }
       throw error;
