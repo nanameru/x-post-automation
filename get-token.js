@@ -18,8 +18,17 @@ const verifierFilePath = path.join(process.cwd(), '.pkce_verifier.txt');
  * Generates and saves a PKCE code verifier and challenge.
  */
 async function generateUrl() {
-  // PKCEなし（Confidential client）。verifier/challengeは不要
-  try { await fs.unlink(verifierFilePath); } catch {}
+  // PKCE（S256）: verifier を保存し、challenge をURLに付与
+  const verifier = crypto.randomBytes(32).toString('hex');
+  await fs.writeFile(verifierFilePath, verifier);
+
+  const challenge = crypto
+    .createHash('sha256')
+    .update(verifier)
+    .digest('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 
   const state = crypto.randomBytes(16).toString('hex');
   const authUrl = new URL('https://twitter.com/i/oauth2/authorize');
@@ -28,6 +37,8 @@ async function generateUrl() {
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('scope', scopes);
   authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('code_challenge', challenge);
+  authUrl.searchParams.set('code_challenge_method', 'S256');
 
   console.log('✅ ステップ1: 以下のURLをブラウザで開いて認可してください');
   console.log('----------------------------------------------------------------');
@@ -42,13 +53,14 @@ async function generateUrl() {
  */
 async function exchangeToken(code) {
   try {
+    const verifier = await fs.readFile(verifierFilePath, 'utf-8');
     const response = await axios.post(
       'https://api.x.com/2/oauth2/token',
       new URLSearchParams({
         grant_type: 'authorization_code',
         code: code,
         redirect_uri: redirectUri,
-        // PKCEなし
+        code_verifier: verifier,
       }).toString(),
       {
         headers: {
