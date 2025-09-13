@@ -14,7 +14,8 @@
     "openai": "^4.0.0",
     "prompts": "^2.4.2",
     "puppeteer": "^21.0.0",
-    "twitter-api-v2": "^1.16.0"
+    "twitter-api-v2": "^1.16.0",
+    "tweetsodium": "^0.0.5"
   },
   "engines": {
     "node": ">=18.0.0"

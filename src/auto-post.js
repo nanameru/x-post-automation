@@ -2,6 +2,7 @@ import puppeteer from 'puppeteer';
 import { Octokit } from '@octokit/rest';
 import OpenAI from 'openai';
 import { TwitterApi } from 'twitter-api-v2';
+import sodium from 'tweetsodium';
 
 class GitHubTrendingBot {
   constructor() {
@@ -71,6 +72,61 @@ class GitHubTrendingBot {
       this.twitterClient = new TwitterApi(accessToken);
       this.tweetClient = this.twitterClient;
       console.log('🔐 Using refreshed OAuth2 token for X API');
+
+      // If a new refresh_token is returned, update GitHub Secret
+      const newRefreshToken = data.refresh_token;
+      if (newRefreshToken) {
+        try {
+          if (process.env.TEST_MODE === 'true') {
+            console.log('🛡️ TEST_MODE: Skipping secret update');
+            return;
+          }
+          const repoOwner = process.env.GITHUB_REPOSITORY?.split('/')?.[0] || 'nanameru';
+          const repoName = process.env.GITHUB_REPOSITORY?.split('/')?.[1] || 'x-post-automation';
+          const adminToken = process.env.GITHUB_SECRET_UPDATE_TOKEN || process.env.GITHUB_TOKEN;
+          if (!adminToken) {
+            console.warn('⚠️ No admin token for secret update. Skipping.');
+            return;
+          }
+
+          const getKey = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/actions/secrets/public-key`, {
+            headers: {
+              'Authorization': `token ${adminToken}`,
+              'Accept': 'application/vnd.github+json'
+            }
+          });
+          const keyData = await getKey.json();
+          if (!getKey.ok) {
+            console.warn('⚠️ Failed to get repo public key:', keyData?.message || getKey.status);
+            return;
+          }
+
+          const messageBytes = new TextEncoder().encode(newRefreshToken);
+          const keyBytes = Buffer.from(keyData.key, 'base64');
+          const encryptedBytes = sodium.seal(messageBytes, keyBytes);
+          const encryptedValue = Buffer.from(encryptedBytes).toString('base64');
+
+          const putResp = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/actions/secrets/X_OAUTH2_REFRESH_TOKEN`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `token ${adminToken}`,
+              'Accept': 'application/vnd.github+json'
+            },
+            body: JSON.stringify({
+              encrypted_value: encryptedValue,
+              key_id: keyData.key_id
+            })
+          });
+          if (!putResp.ok) {
+            const putErr = await putResp.text();
+            console.warn('⚠️ Failed to update secret:', putResp.status, putErr);
+          } else {
+            console.log('🔁 Updated GitHub secret: X_OAUTH2_REFRESH_TOKEN');
+          }
+        } catch (se) {
+          console.warn('⚠️ Secret rotation failed:', se.message);
+        }
+      }
       return;
     } catch (e) {
       console.error('❌ OAuth2 refresh failed:', e.message);
