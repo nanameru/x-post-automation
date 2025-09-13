@@ -21,55 +21,61 @@ class GitHubTrendingBot {
   async refreshOAuth2TokenIfNeeded() {
     if (this.tweetClient) return; // already initialized
 
-    // Prefer OAuth2 refresh flow first (always refresh when creds available)
+    // Always refresh using OAuth2. No access-token nor OAuth1 fallback.
     const refreshToken = process.env.X_OAUTH2_REFRESH_TOKEN;
     const clientId = process.env.X_CLIENT_ID;
-    // PKCE準拠: client_secretは送らない（Authorizationヘッダも付けない）
-    if (refreshToken && clientId) {
-      try {
-        const body = new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: refreshToken,
-          client_id: clientId
-        });
-        const resp = await fetch('https://api.x.com/2/oauth2/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(`Refresh failed: ${data?.error || resp.status}`);
-        const accessToken = data.access_token;
-        if (accessToken) {
-          this.twitterClient = new TwitterApi(accessToken);
-          this.tweetClient = this.twitterClient;
-          console.log('🔐 Using refreshed OAuth2 token for X API');
-          return;
+    const clientSecret = process.env.X_CLIENT_SECRET;
+
+    if (!refreshToken) {
+      throw new Error('Missing X_OAUTH2_REFRESH_TOKEN');
+    }
+
+    // If clientSecret exists, treat as confidential client flow.
+    const isConfidential = Boolean(clientSecret);
+
+    try {
+      const body = new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        ...(isConfidential ? {} : { client_id: clientId })
+      });
+
+      const headers = {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      };
+      if (isConfidential) {
+        if (!clientId || !clientSecret) {
+          throw new Error('Confidential flow requires X_CLIENT_ID and X_CLIENT_SECRET');
         }
-      } catch (e) {
-        console.error('❌ OAuth2 refresh failed:', e.message);
+        headers['Authorization'] = 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      } else {
+        if (!clientId) {
+          throw new Error('PKCE flow requires X_CLIENT_ID');
+        }
       }
-    }
 
-    // Fallback: use provided OAuth2 access token if any
-    if (process.env.X_OAUTH2_ACCESS_TOKEN) {
-      this.twitterClient = new TwitterApi(process.env.X_OAUTH2_ACCESS_TOKEN);
+      const resp = await fetch('https://api.x.com/2/oauth2/token', {
+        method: 'POST',
+        headers,
+        body
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        const err = data?.error || data?.error_description || resp.status;
+        throw new Error(`Refresh failed: ${err}`);
+      }
+      const accessToken = data.access_token;
+      if (!accessToken) {
+        throw new Error('Refresh succeeded but no access_token in response');
+      }
+      this.twitterClient = new TwitterApi(accessToken);
       this.tweetClient = this.twitterClient;
-      console.log('🔐 Using provided OAuth2 user token for X API');
+      console.log('🔐 Using refreshed OAuth2 token for X API');
       return;
+    } catch (e) {
+      console.error('❌ OAuth2 refresh failed:', e.message);
+      throw e;
     }
-
-    // Final fallback to OAuth1 user tokens
-    this.twitterClient = new TwitterApi({
-      appKey: process.env.X_API_KEY,
-      appSecret: process.env.X_API_SECRET,
-      accessToken: process.env.X_ACCESS_TOKEN,
-      accessSecret: process.env.X_ACCESS_TOKEN_SECRET,
-    });
-    this.tweetClient = this.twitterClient.readWrite;
-    console.log('🔐 Using OAuth1.0a user tokens for X API');
   }
 
   /**
