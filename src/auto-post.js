@@ -217,8 +217,9 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
 
     try {
       const response = await this.openai.responses.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5",
         input: prompt,
+        reasoning: { effort: "low" },
         max_output_tokens: 150,
         temperature: 0.7
       });
