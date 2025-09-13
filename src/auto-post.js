@@ -192,30 +192,28 @@ class GitHubTrendingBot {
    */
   async generateTweetText(repoDetails, trendingInfo) {
     const prompt = `
-以下のGitHubトレンドリポジトリについて、カジュアルで魅力的なTwitter投稿文を作成してください。
+あなたは短く鋭い日本語のテック投稿ライターです。次の情報から、指定の文体でポスト文を1つだけ作ってください。
 
-リポジトリ名: ${trendingInfo.name}
-説明: ${trendingInfo.description}
-言語: ${trendingInfo.language}
-スター数: ${trendingInfo.stars}
-URL: ${trendingInfo.url}
+文体の条件:
+- 冒頭は「<主体>が<何をしていて>面白い。」で始める
+- 2〜3文、最大260文字。絵文字・ハッシュタグなし。丁寧でカジュアル
+- 「これを〜しておけば、〜から〜できる」の型を1回含める
+- 誇張や断定は避け、事実ベースで端的に価値を示す
+- URLは本文に入れない（本文の直後に改行し、コード側でURLを1行付ける）
 
-README抜粋:
-${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
+主体の決め方:
+- owner/repo から自然な主語（owner か repo 名）を選ぶ
 
-スタイル要件:
-- 280文字以内
-- カジュアルで親しみやすい口調
-- 具体的な魅力や使用事例を強調
-- 「これ○○で圧巻」「○○がありがたい」のような自然な表現
-- 技術的な特徴を分かりやすく説明
-- ハッシュタグを2-3個含める
-- 絵文字は控えめに（1-2個程度）
-- URLは含めない（別途添付するため）
+素材:
+- リポジトリ名: ${trendingInfo.name}
+- 説明: ${trendingInfo.description}
+- 言語: ${trendingInfo.language}
+- スター数: ${trendingInfo.stars}
 
-参考例: 「これNano-Bananaの活用事例が60個以上まとめてあって圧巻。プロンプトと出力が一覧で見れるのがありがたいですね。」
+README抜粋（参考用・引用はしない）:
+${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
 
-日本語で作成してください。`;
+出力: 本文のみ（1つ）。先頭/末尾の空白なし。`;
 
     try {
       const response = await this.openai.responses.create({
@@ -227,13 +225,14 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
 
       const text = (response.output_text || "").trim();
       if (text) return text;
+      // Fallback if SDK shape changes
       const choiceText = response?.choices?.[0]?.message?.content?.[0]?.text ||
                          response?.choices?.[0]?.message?.content || "";
       if (choiceText) return String(choiceText).trim();
-      return `🔥 GitHubトレンド: ${trendingInfo.name}\n\n${trendingInfo.description}\n\n#GitHub #${trendingInfo.language} #OpenSource`;
+      return `🔥 GitHubトレンド: ${trendingInfo.name}\n\n${trendingInfo.description}`;
     } catch (error) {
       console.error('❌ Error generating tweet text:', error.message);
-      return `🔥 GitHubトレンド: ${trendingInfo.name}\n\n${trendingInfo.description}\n\n#GitHub #${trendingInfo.language} #OpenSource`;
+      return `🔥 GitHubトレンド: ${trendingInfo.name}\n\n${trendingInfo.description}`;
     }
   }
 
@@ -243,15 +242,18 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
   async postTweet(tweetText, repoUrl) {
     try {
       await this.refreshOAuth2TokenIfNeeded();
+      // 本文 + 改行 + URL（末尾にURLのみ）
       const tweetData = {
-        text: `${tweetText}\n\n🔗 ${repoUrl}`
+        text: `${tweetText}\n${repoUrl}`
       };
 
       const tweet = await this.tweetClient.v2.tweet(tweetData);
+      
       console.log(`🐦 Tweet posted successfully: ${tweet.data.id}`);
       return tweet;
     } catch (error) {
       console.error('❌ Error posting tweet:', error.message);
+      // Extra diagnostics for common X API permission issues
       const headers = error?.headers || error?.data?.headers;
       const accessLevel = headers?.['x-access-level'] || headers?.['X-Access-Level'];
       const detail = error?.data?.detail || error?.data?.title || '';
@@ -259,6 +261,7 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
       if (detail) console.error(`ℹ️ X API detail: ${detail}`);
 
       if (error?.code === 403 || error?.data?.status === 403) {
+        // Provide targeted hints for both OAuth1.0a and OAuth2 cases
         if (process.env.X_OAUTH2_ACCESS_TOKEN || process.env.X_OAUTH2_REFRESH_TOKEN) {
           console.error('🔎 Hint: Ensure your X Project tier allows writing and token has tweet.write scope.');
         } else {
@@ -307,6 +310,7 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
   }
 }
 
+// メイン処理実行
 if (import.meta.url === `file://${process.argv[1]}`) {
   const bot = new GitHubTrendingBot();
   bot.run();
