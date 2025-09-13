@@ -49,6 +49,7 @@ jobs:
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
           X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
           X_OAUTH2_ACCESS_TOKEN: ${{ secrets.X_OAUTH2_ACCESS_TOKEN }}
+          REQUIRE_OAUTH2: 'true'
           TEST_MODE: ${{ github.event.inputs.test_mode }}
         run: |
           if [ "$TEST_MODE" = "true" ]; then

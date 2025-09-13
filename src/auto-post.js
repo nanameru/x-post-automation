@@ -13,6 +13,11 @@ class GitHubTrendingBot {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
+    // Enforce OAuth2 if requested
+    if (String(process.env.REQUIRE_OAUTH2 || '').toLowerCase() === 'true' && !process.env.X_OAUTH2_ACCESS_TOKEN) {
+      throw new Error('X_OAUTH2_ACCESS_TOKEN is required because REQUIRE_OAUTH2=true');
+    }
+
     // Prefer OAuth2 user-context token when provided (requires tweet.write scope)
     if (process.env.X_OAUTH2_ACCESS_TOKEN) {
       this.twitterClient = new TwitterApi(process.env.X_OAUTH2_ACCESS_TOKEN);
