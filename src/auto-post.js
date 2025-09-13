@@ -13,25 +13,64 @@ class GitHubTrendingBot {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    // Allow either OAuth2 (preferred) or OAuth1 (fallback)
+    // Lazily initialize to allow OAuth2 refresh at runtime
+    this.twitterClient = null;
+    this.tweetClient = null;
+  }
 
-    // Prefer OAuth2 user-context token when provided (requires tweet.write scope)
+  async refreshOAuth2TokenIfNeeded() {
+    if (this.tweetClient) return; // already initialized
+
+    // Use provided OAuth2 token directly
     if (process.env.X_OAUTH2_ACCESS_TOKEN) {
       this.twitterClient = new TwitterApi(process.env.X_OAUTH2_ACCESS_TOKEN);
-      this.tweetClient = this.twitterClient; // OAuth2 client already carries scopes
+      this.tweetClient = this.twitterClient;
       console.log('🔐 Using OAuth2 user token for X API');
-    } else {
-      // Fallback to OAuth 1.0a user-context tokens
-      this.twitterClient = new TwitterApi({
-        appKey: process.env.X_API_KEY,
-        appSecret: process.env.X_API_SECRET,
-        accessToken: process.env.X_ACCESS_TOKEN,
-        accessSecret: process.env.X_ACCESS_TOKEN_SECRET,
-      });
-
-      this.tweetClient = this.twitterClient.readWrite;
-      console.log('🔐 Using OAuth1.0a user tokens for X API');
+      return;
     }
+
+    // Try OAuth2 refresh if secrets provided
+    const refreshToken = process.env.X_OAUTH2_REFRESH_TOKEN;
+    const clientId = process.env.X_CLIENT_ID;
+    const clientSecret = process.env.X_CLIENT_SECRET;
+    if (refreshToken && clientId && clientSecret) {
+      try {
+        const body = new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: clientId
+        });
+        const resp = await fetch('https://api.x.com/2/oauth2/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+          },
+          body
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(`Refresh failed: ${data?.error || resp.status}`);
+        const accessToken = data.access_token;
+        if (accessToken) {
+          this.twitterClient = new TwitterApi(accessToken);
+          this.tweetClient = this.twitterClient;
+          console.log('🔐 Using refreshed OAuth2 token for X API');
+          return;
+        }
+      } catch (e) {
+        console.error('❌ OAuth2 refresh failed:', e.message);
+      }
+    }
+
+    // Fallback to OAuth1 user tokens
+    this.twitterClient = new TwitterApi({
+      appKey: process.env.X_API_KEY,
+      appSecret: process.env.X_API_SECRET,
+      accessToken: process.env.X_ACCESS_TOKEN,
+      accessSecret: process.env.X_ACCESS_TOKEN_SECRET,
+    });
+    this.tweetClient = this.twitterClient.readWrite;
+    console.log('🔐 Using OAuth1.0a user tokens for X API');
   }
 
   /**
@@ -59,7 +98,7 @@ class GitHubTrendingBot {
           const languageElement = element.querySelector('[itemprop="programmingLanguage"]');
           
           return {
-            name: linkElement?.textContent.trim().replace(/\\s+/g, ' ') || '',
+            name: linkElement?.textContent.trim().replace(/\s+/g, ' ') || '',
             url: linkElement ? 'https://github.com' + linkElement.getAttribute('href') : '',
             description: descElement?.textContent.trim() || '',
             stars: starsElement?.textContent.trim() || '0',
@@ -104,7 +143,7 @@ class GitHubTrendingBot {
         owner: 'nanameru',
         repo: 'x-post-automation',
         title: `Posted: ${repoName}`,
-        body: `Repository: ${repoUrl}\\nPosted at: ${new Date().toISOString()}`,
+        body: `Repository: ${repoUrl}\nPosted at: ${new Date().toISOString()}`,
         labels: ['posted', 'auto-generated']
       });
       
@@ -196,19 +235,19 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
       return `🔥 GitHubトレンド: ${trendingInfo.name}\n\n${trendingInfo.description}\n\n#GitHub #${trendingInfo.language} #OpenSource`;
     } catch (error) {
       console.error('❌ Error generating tweet text:', error.message);
-      return `🔥 GitHubトレンド: ${trendingInfo.name}\\n\\n${trendingInfo.description}\\n\\n#GitHub #${trendingInfo.language} #OpenSource`;
+      return `🔥 GitHubトレンド: ${trendingInfo.name}\n\n${trendingInfo.description}\n\n#GitHub #${trendingInfo.language} #OpenSource`;
     }
   }
-
 
   /**
    * Xにツイートを投稿
    */
   async postTweet(tweetText, repoUrl) {
     try {
+      await this.refreshOAuth2TokenIfNeeded();
       // ツイート投稿（テキストのみ）
       const tweetData = {
-        text: `${tweetText}\\n\\n🔗 ${repoUrl}`
+        text: `${tweetText}\n\n🔗 ${repoUrl}`
       };
 
       const tweet = await this.tweetClient.v2.tweet(tweetData);
@@ -226,12 +265,10 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
 
       if (error?.code === 403 || error?.data?.status === 403) {
         // Provide targeted hints for both OAuth1.0a and OAuth2 cases
-        if (process.env.X_OAUTH2_ACCESS_TOKEN) {
-          console.error('🔎 Hint: Ensure your X Project is on a tier that allows writing tweets and your OAuth2 token has tweet.write scope.');
-          console.error('➡️  Fix: In X Developer Portal, enable User authentication with Read and write, add tweet.write scope, re-authorize to obtain a new OAuth2 access token, and update X_OAUTH2_ACCESS_TOKEN.');
+        if (process.env.X_OAUTH2_ACCESS_TOKEN || process.env.X_OAUTH2_REFRESH_TOKEN) {
+          console.error('🔎 Hint: Ensure your X Project tier allows writing and token has tweet.write scope.');
         } else {
-          console.error('🔎 Hint: Your OAuth 1.0a app/token may not allow writes.');
-          console.error('➡️  Fix: Set App permissions to "Read and write", then re-generate Access Token & Secret and update X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET. Consider switching to OAuth2 with tweet.write.');
+          console.error('🔎 Hint: OAuth 1.0a app/token may not allow writes. Re-generate RW tokens.');
         }
       }
       throw error;
