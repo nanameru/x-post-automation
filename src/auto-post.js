@@ -24,19 +24,18 @@ class GitHubTrendingBot {
     // Prefer OAuth2 refresh flow first (always refresh when creds available)
     const refreshToken = process.env.X_OAUTH2_REFRESH_TOKEN;
     const clientId = process.env.X_CLIENT_ID;
-    const clientSecret = process.env.X_CLIENT_SECRET;
-    if (refreshToken && clientId && clientSecret) {
+    // PKCE準拠: client_secretは送らない（Authorizationヘッダも付けない）
+    if (refreshToken && clientId) {
       try {
         const body = new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token: refreshToken,
           client_id: clientId
         });
-        const resp = await fetch('https://api.twitter.com/2/oauth2/token', {
+        const resp = await fetch('https://api.x.com/2/oauth2/token', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+            'Content-Type': 'application/x-www-form-urlencoded'
           },
           body
         });
