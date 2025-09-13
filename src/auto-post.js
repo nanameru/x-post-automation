@@ -21,15 +21,7 @@ class GitHubTrendingBot {
   async refreshOAuth2TokenIfNeeded() {
     if (this.tweetClient) return; // already initialized
 
-    // Use provided OAuth2 token directly
-    if (process.env.X_OAUTH2_ACCESS_TOKEN) {
-      this.twitterClient = new TwitterApi(process.env.X_OAUTH2_ACCESS_TOKEN);
-      this.tweetClient = this.twitterClient;
-      console.log('🔐 Using OAuth2 user token for X API');
-      return;
-    }
-
-    // Try OAuth2 refresh if secrets provided
+    // Prefer OAuth2 refresh flow first (always refresh when creds available)
     const refreshToken = process.env.X_OAUTH2_REFRESH_TOKEN;
     const clientId = process.env.X_CLIENT_ID;
     const clientSecret = process.env.X_CLIENT_SECRET;
@@ -62,7 +54,15 @@ class GitHubTrendingBot {
       }
     }
 
-    // Fallback to OAuth1 user tokens
+    // Fallback: use provided OAuth2 access token if any
+    if (process.env.X_OAUTH2_ACCESS_TOKEN) {
+      this.twitterClient = new TwitterApi(process.env.X_OAUTH2_ACCESS_TOKEN);
+      this.tweetClient = this.twitterClient;
+      console.log('🔐 Using provided OAuth2 user token for X API');
+      return;
+    }
+
+    // Final fallback to OAuth1 user tokens
     this.twitterClient = new TwitterApi({
       appKey: process.env.X_API_KEY,
       appSecret: process.env.X_API_SECRET,
@@ -218,7 +218,6 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
 日本語で作成してください。`;
 
     try {
-      // Use the Responses API (v4 SDK) and supported model
       const response = await this.openai.responses.create({
         model: "gpt-4o-mini",
         input: prompt,
@@ -228,7 +227,6 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
 
       const text = (response.output_text || "").trim();
       if (text) return text;
-      // Fallback if SDK shape changes
       const choiceText = response?.choices?.[0]?.message?.content?.[0]?.text ||
                          response?.choices?.[0]?.message?.content || "";
       if (choiceText) return String(choiceText).trim();
@@ -245,18 +243,15 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
   async postTweet(tweetText, repoUrl) {
     try {
       await this.refreshOAuth2TokenIfNeeded();
-      // ツイート投稿（テキストのみ）
       const tweetData = {
         text: `${tweetText}\n\n🔗 ${repoUrl}`
       };
 
       const tweet = await this.tweetClient.v2.tweet(tweetData);
-      
       console.log(`🐦 Tweet posted successfully: ${tweet.data.id}`);
       return tweet;
     } catch (error) {
       console.error('❌ Error posting tweet:', error.message);
-      // Extra diagnostics for common X API permission issues
       const headers = error?.headers || error?.data?.headers;
       const accessLevel = headers?.['x-access-level'] || headers?.['X-Access-Level'];
       const detail = error?.data?.detail || error?.data?.title || '';
@@ -264,7 +259,6 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
       if (detail) console.error(`ℹ️ X API detail: ${detail}`);
 
       if (error?.code === 403 || error?.data?.status === 403) {
-        // Provide targeted hints for both OAuth1.0a and OAuth2 cases
         if (process.env.X_OAUTH2_ACCESS_TOKEN || process.env.X_OAUTH2_REFRESH_TOKEN) {
           console.error('🔎 Hint: Ensure your X Project tier allows writing and token has tweet.write scope.');
         } else {
@@ -282,22 +276,16 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
     try {
       console.log('🚀 Starting GitHub Trending X Bot...');
 
-      // 1. トレンドリポジトリを取得
       const trendingRepos = await this.getTrendingRepositories();
-      
       if (trendingRepos.length === 0) {
         console.log('📭 No trending repositories found');
         return;
       }
 
-      // 2. 重複チェック & 1つ選択
       let selectedRepo = null;
       for (const repo of trendingRepos) {
         const isDuplicate = await this.isDuplicateRepository(repo.name);
-        if (!isDuplicate) {
-          selectedRepo = repo;
-          break;
-        }
+        if (!isDuplicate) { selectedRepo = repo; break; }
       }
 
       if (!selectedRepo) {
@@ -306,19 +294,10 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
       }
 
       console.log(`🎯 Selected repository: ${selectedRepo.name}`);
-
-      // 3. リポジトリの詳細情報を取得
       const repoDetails = await this.getRepositoryDetails(selectedRepo.url);
-
-      // 4. ツイート文を生成
       const tweetText = await this.generateTweetText(repoDetails, selectedRepo);
-
-      // 5. ツイート投稿（テキストのみ）
       await this.postTweet(tweetText, selectedRepo.url);
-
-      // 6. 投稿済みとして記録
       await this.recordPostedRepository(selectedRepo.name, selectedRepo.url);
-
       console.log('✅ Process completed successfully!');
       
     } catch (error) {
@@ -328,7 +307,6 @@ ${repoDetails?.readme?.substring(0, 1000) || 'README情報なし'}
   }
 }
 
-// メイン処理実行
 if (import.meta.url === `file://${process.argv[1]}`) {
   const bot = new GitHubTrendingBot();
   bot.run();
