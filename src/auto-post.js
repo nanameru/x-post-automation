@@ -54,7 +54,7 @@ class GitHubTrendingBot {
         }
       }
 
-      const resp = await fetch('https://api.x.com/2/oauth2/token', {
+      const resp = await fetch('https://api.twitter.com/2/oauth2/token', {
         method: 'POST',
         headers,
         body
