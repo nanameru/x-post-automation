@@ -9,9 +9,11 @@
     "test": "node src/test.js"
   },
   "dependencies": {
-    "puppeteer": "^21.0.0",
-    "@octokit/rest": "^20.0.0", 
+    "@octokit/rest": "^20.0.0",
+    "axios": "^1.12.1",
     "openai": "^4.0.0",
+    "prompts": "^2.4.2",
+    "puppeteer": "^21.0.0",
     "twitter-api-v2": "^1.16.0"
   },
   "engines": {
