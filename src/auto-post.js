@@ -32,7 +32,7 @@ class GitHubTrendingBot {
           refresh_token: refreshToken,
           client_id: clientId
         });
-        const resp = await fetch('https://api.x.com/2/oauth2/token', {
+        const resp = await fetch('https://api.twitter.com/2/oauth2/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -220,8 +220,7 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
         model: "gpt-5",
         input: prompt,
         reasoning: { effort: "low" },
-        max_output_tokens: 150,
-        temperature: 0.7
+        max_output_tokens: 150
       });
 
       const text = (response.output_text || "").trim();
