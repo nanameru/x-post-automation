@@ -35,6 +35,7 @@ class GitHubTrendingBot {
     const isConfidential = Boolean(clientSecret);
 
     try {
+      console.log(`🔎 OAuth2 refresh flow: ${isConfidential ? 'confidential (Basic auth)' : 'public PKCE'}`);
       const body = new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
@@ -60,9 +61,12 @@ class GitHubTrendingBot {
         headers,
         body
       });
-      const data = await resp.json();
+      const rawText = await resp.text();
+      let data = {};
+      try { data = rawText ? JSON.parse(rawText) : {}; } catch { data = { error_description: rawText }; }
       if (!resp.ok) {
         const err = data?.error || data?.error_description || resp.status;
+        console.error('ℹ️ Refresh error payload:', rawText?.slice(0, 500));
         throw new Error(`Refresh failed: ${err}`);
       }
       const accessToken = data.access_token;
