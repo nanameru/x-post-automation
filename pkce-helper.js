@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
 // Usage:
 //   X_CLIENT_ID=... X_REDIRECT_URI=... node pkce-helper.js
@@ -41,6 +43,7 @@ function main() {
   const redirectUri = process.env.X_REDIRECT_URI || '';
   const scope = process.env.SCOPE || 'tweet.write tweet.read users.read offline.access';
   const state = process.env.STATE || base64url(crypto.randomBytes(12));
+  const silent = process.argv.includes('--silent') || process.env.NO_URL === '1';
 
   if (!clientId || !redirectUri) {
     console.error('Missing env: X_CLIENT_ID and X_REDIRECT_URI are required');
@@ -50,6 +53,24 @@ function main() {
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = toCodeChallenge(codeVerifier);
   const authUrl = buildAuthUrl({ clientId, redirectUri, scope, state, codeChallenge });
+
+  // Persist for later exchange
+  const store = {
+    clientId,
+    redirectUri,
+    scope,
+    state,
+    codeVerifier,
+    codeChallenge,
+    createdAt: new Date().toISOString()
+  };
+  const filePath = path.join(process.cwd(), '.pkce.json');
+  fs.writeFileSync(filePath, JSON.stringify(store, null, 2));
+
+  if (silent) {
+    console.log(`Saved PKCE verifier to ${filePath}`);
+    return;
+  }
 
   console.log('code_verifier:');
   console.log(codeVerifier);
@@ -62,8 +83,8 @@ function main() {
   console.log(`export X_CODE_VERIFIER=${codeVerifier}`);
   console.log(`export X_CLIENT_ID=${clientId}`);
   console.log(`export X_REDIRECT_URI=${redirectUri}`);
-  console.log('\nNext: open the URL above in a browser, approve, then run:');
-  console.log('node get-token.js "<AUTHORIZATION_CODE>"');
+  console.log('\nNext: run code exchange:');
+  console.log('node exchange-code.js "<AUTHORIZATION_CODE>"');
 }
 
 main();
