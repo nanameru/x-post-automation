@@ -40,21 +40,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: OpenAI sanity check (curl)
-        continue-on-error: true
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          echo "Running OpenAI sanity check via curl..."
-          curl https://api.openai.com/v1/responses \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -d '{
-              "model":"gpt-5",
-              "input":"\nあなたは短く鋭い日本語のテック投稿ライターです。次の情報から、指定の文体でポスト文を1つだけ作ってください。\n\n文体の条件:\n- 冒頭は「<主体>が<何をしていて>面白い。」で始める\n- 2〜3文、最大260文字。絵文字・ハッシュタグなし。丁寧でカジュアル\n- 「これを〜しておけば、〜から〜できる」の型を1回含める（例: これをブックマークしておけば、必要な領域から最短で要点に届く）\n- 誇張や断定を避け、事実ベースで端的に価値を示す（「最高」「すごく良い」等の主観の重複は避ける）\n- URLは本文に入れない（本文の直後に改行し、コード側でURLを1行付ける）\n\n主体の決め方:\n- owner/repo から自然な主語（owner か repo 名）を選ぶ\n\n特別な書き分け（リソース集/リンク集の場合）:\n- 説明やREADMEに awesome/curated/list/resources/book/community/newsletter などの語が多い場合は、\n  - 対象読者（例: データエンジニア）を一語で明示\n  - カバー範囲を2〜3種だけ具体的に列挙（例: 書籍・コミュニティ・ニュースレター）\n  - 主観を減らし、網羅性/整理度/継続更新などの事実を簡潔に示す\n\n素材:\n- リポジトリ名: OWNER/REPO\n- 説明: curated resources for data engineering (books, communities, newsletters, videos, blogs)\n- 言語: Various\n- スター数: 9999\n\nREADME抜粋（参考用・引用はしない）:\nAwesome curated list for data engineers.\n\n出力: 本文のみ（1つ）。先頭/末尾の空白なし。",
-              "reasoning": {"effort":"low"}
-            }' | head -c 2000 || true
-
       - name: Run trending post automation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

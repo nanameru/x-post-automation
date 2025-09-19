@@ -306,6 +306,8 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         };
+        if (org) headers['OpenAI-Organization'] = org;
+        if (project) headers['OpenAI-Project'] = project;
         const resp = await fetch('https://api.openai.com/v1/responses', {
           method: 'POST',
           headers,
@@ -328,6 +330,26 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
         if (outputText) {
           console.log(`🧪 OpenAI output_text length=${outputText.length} (attempt ${attempt})`);
           return outputText;
+        }
+
+        // Responses API canonical path: output[].content[].text
+        const outputs = Array.isArray(response?.output) ? response.output : [];
+        for (const item of outputs) {
+          // Prefer message items
+          if (item?.type === 'message' && Array.isArray(item.content)) {
+            for (const c of item.content) {
+              if (c?.type === 'output_text' && typeof c.text === 'string' && c.text.trim()) {
+                const text = c.text.trim();
+                console.log(`🧪 OpenAI output[].content path used, length=${text.length} (attempt ${attempt})`);
+                return text;
+              }
+              if (typeof c === 'string' && c.trim()) {
+                const text = c.trim();
+                console.log(`🧪 OpenAI output[].content string used, length=${text.length} (attempt ${attempt})`);
+                return text;
+              }
+            }
+          }
         }
 
         // Fallback paths for SDK shape variance
