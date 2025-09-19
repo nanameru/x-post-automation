@@ -297,6 +297,9 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
 出力: 本文のみ（1つ）。先頭/末尾の空白なし。`;
 
     try {
+      console.log('🧪 OpenAI request: model=gpt-5, max_output_tokens=150');
+      console.log(`🧪 Prompt preview: ${prompt.slice(0, 180).replace(/\n/g, ' ')}...`);
+
       const response = await this.openai.responses.create({
         model: "gpt-5",
         input: prompt,
@@ -304,15 +307,30 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
         max_output_tokens: 150
       });
 
-      const text = (response.output_text || "").trim();
-      if (text) return text;
-      // Fallback if SDK shape changes
-      const choiceText = response?.choices?.[0]?.message?.content?.[0]?.text ||
-                         response?.choices?.[0]?.message?.content || "";
-      if (choiceText) return String(choiceText).trim();
+      const outputText = (response?.output_text ?? '').trim();
+      if (outputText) {
+        console.log(`🧪 OpenAI output_text length=${outputText.length}`);
+        return outputText;
+      }
+
+      // Fallback paths for SDK shape variance
+      const choicePrimary = response?.choices?.[0]?.message?.content?.[0]?.text;
+      const choiceAlt = response?.choices?.[0]?.message?.content;
+      const choiceText = (choicePrimary ?? choiceAlt ?? '').toString().trim();
+      if (choiceText) {
+        console.log(`🧪 OpenAI choices path used, length=${choiceText.length}`);
+        return choiceText;
+      }
+
+      console.log('🟡 OpenAI returned empty content. Falling back to repo name/description.');
       return `🔥 GitHubトレンド: ${trendingInfo.name}\n\n${trendingInfo.description}`;
     } catch (error) {
       console.error('❌ Error generating tweet text:', error.message);
+      const raw = error?.response?.data || error?.stack || '';
+      if (raw) {
+        const preview = typeof raw === 'string' ? raw.slice(0, 500) : JSON.stringify(raw).slice(0, 500);
+        console.error('ℹ️ OpenAI error payload preview:', preview);
+      }
       return `🔥 GitHubトレンド: ${trendingInfo.name}\n\n${trendingInfo.description}`;
     }
   }
