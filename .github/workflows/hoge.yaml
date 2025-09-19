@@ -40,6 +40,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: OpenAI sanity check (curl)
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Running OpenAI sanity check via curl..."
+          curl https://api.openai.com/v1/responses \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -d '{"model":"gpt-5","input":"Write a haiku about code.","reasoning":{"effort":"low"}}' | head -c 2000 || true
+
       - name: Run trending post automation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
