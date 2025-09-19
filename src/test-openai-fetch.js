@@ -48,6 +48,7 @@ Awesome curated list for data engineers. Links to books, communities, newsletter
   const body = {
     model: 'gpt-5',
     input: prompt,
+    reasoning: { effort: 'low' },
     max_output_tokens: 200
   };
 
