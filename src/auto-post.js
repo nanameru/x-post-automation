@@ -316,7 +316,7 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
             input: prompt,
             reasoning: { effort: 'low' },
             max_output_tokens: 150,
-            response_format: { type: 'text' }
+            "text.format": { type: 'text' }
           })
         });
         const raw = await resp.text();
