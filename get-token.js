@@ -42,25 +42,27 @@ async function main() {
     };
     const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
 
+    // 共通でclient_idは常に含める（Twitter側で要求されるケースに備える）
+    bodyParams.client_id = clientId;
+
     if (isConfidential) {
       if (!clientSecret) {
         console.error('Missing env: X_CLIENT_SECRET is required for confidential flow');
         process.exit(1);
       }
-      // 機密クライアント: Basic認証ヘッダ、code_verifierは送らない
+      // 機密クライアント: Basic認証ヘッダ付与
       headers['Authorization'] = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
-      // Twitterのエンドポイントはbodyのclient_idは不要（Basic内で識別）。送っても拒否される場合があるため含めない。
+      // 機密+PKCEも許容（code_verifierがあれば一緒に送る）
+      if (codeVerifier) {
+        bodyParams.code_verifier = codeVerifier;
+      }
     } else {
-      // PKCE: client_idとcode_verifierを必ず送る。Authorizationヘッダは付けない。
+      // PKCE: Authorizationヘッダは付けない。code_verifier必須。
       if (!codeVerifier) {
         console.error('Missing env: X_CODE_VERIFIER is required for PKCE flow');
         process.exit(1);
       }
-      bodyParams = {
-        ...bodyParams,
-        client_id: clientId,
-        code_verifier: codeVerifier,
-      };
+      bodyParams.code_verifier = codeVerifier;
     }
 
     const resp = await axios.post(url, new URLSearchParams(bodyParams).toString(), { headers });
