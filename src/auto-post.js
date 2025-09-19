@@ -1,7 +1,6 @@
 import puppeteer from 'puppeteer';
 import { Octokit } from '@octokit/rest';
 import { TwitterApi } from 'twitter-api-v2';
-import OpenAI from 'openai';
 import sodium from 'tweetsodium';
 
 class GitHubTrendingBot {
@@ -10,12 +9,7 @@ class GitHubTrendingBot {
       auth: process.env.GITHUB_TOKEN,
     });
 
-    // OpenAI SDK initialization (organization/project optional)
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      organization: process.env.OPENAI_ORG,
-      project: process.env.OPENAI_PROJECT
-    });
+    // OpenAI SDK not used; direct HTTP (curl-equivalent) via fetch
 
     // Lazily initialize to allow OAuth2 refresh at runtime
     this.twitterClient = null;
@@ -305,13 +299,33 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
         console.log(`🧪 OpenAI request (attempt ${attempt}/${maxAttempts}): model=gpt-5, max_output_tokens=150`);
         console.log(`🧪 Prompt preview: ${prompt.slice(0, 180).replace(/\n/g, ' ')}...`);
 
-        console.log(`🧪 OpenAI org=${process.env.OPENAI_ORG ? '[set]' : '[unset]'}, project=${process.env.OPENAI_PROJECT ? '[set]' : '[unset]'}`);
-        const response = await this.openai.responses.create({
-          model: 'gpt-5',
-          input: prompt,
-          reasoning: { effort: 'low' },
-          max_output_tokens: 150
+        const org = process.env.OPENAI_ORG;
+        const project = process.env.OPENAI_PROJECT;
+        console.log(`🧪 OpenAI via fetch (org=${org ? 'set' : 'unset'}, project=${project ? 'set' : 'unset'})`);
+        const headers = {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+          ...(org ? { 'OpenAI-Organization': org } : {}),
+          ...(project ? { 'OpenAI-Project': project } : {})
+        };
+        const resp = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: 'gpt-5',
+            input: prompt,
+            reasoning: { effort: 'low' },
+            max_output_tokens: 150,
+            response_format: { type: 'text' }
+          })
         });
+        const raw = await resp.text();
+        if (!resp.ok) {
+          console.error(`❌ OpenAI HTTP ${resp.status}:`, raw.slice(0, 500));
+          throw new Error(`OpenAI HTTP ${resp.status}`);
+        }
+        let response;
+        try { response = raw ? JSON.parse(raw) : {}; } catch { response = {}; }
 
         const outputText = (response?.output_text ?? '').trim();
         if (outputText) {
