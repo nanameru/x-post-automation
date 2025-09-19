@@ -1,6 +1,5 @@
 import puppeteer from 'puppeteer';
 import { Octokit } from '@octokit/rest';
-import OpenAI from 'openai';
 import { TwitterApi } from 'twitter-api-v2';
 import sodium from 'tweetsodium';
 
@@ -10,9 +9,7 @@ class GitHubTrendingBot {
       auth: process.env.GITHUB_TOKEN,
     });
 
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // OpenAI SDK is not used; calls are made via REST API (fetch)
 
     // Lazily initialize to allow OAuth2 refresh at runtime
     this.twitterClient = null;
@@ -302,12 +299,28 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
         console.log(`🧪 OpenAI request (attempt ${attempt}/${maxAttempts}): model=gpt-5, max_output_tokens=150`);
         console.log(`🧪 Prompt preview: ${prompt.slice(0, 180).replace(/\n/g, ' ')}...`);
 
-        const response = await this.openai.responses.create({
-          model: "gpt-5",
-          input: prompt,
-          reasoning: { effort: "low" },
-          max_output_tokens: 150
+        const resp = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-5',
+            input: prompt,
+            reasoning: { effort: 'low' },
+            max_output_tokens: 150
+          })
         });
+
+        const raw = await resp.text();
+        if (!resp.ok) {
+          console.error(`❌ OpenAI HTTP ${resp.status}:`, raw.slice(0, 500));
+          throw new Error(`OpenAI HTTP ${resp.status}`);
+        }
+
+        let response;
+        try { response = raw ? JSON.parse(raw) : {}; } catch { response = {}; }
 
         const outputText = (response?.output_text ?? '').trim();
         if (outputText) {
