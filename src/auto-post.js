@@ -312,7 +312,7 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
           method: 'POST',
           headers,
           body: JSON.stringify({
-            model: 'gpt-5',
+            model: 'gpt-4o-mini',
             input: prompt,
             reasoning: { effort: 'low' },
             max_output_tokens: 150

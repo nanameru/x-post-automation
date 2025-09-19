@@ -18,7 +18,7 @@ async function main() {
   };
 
   const body = {
-    model: 'gpt-5',
+    model: 'gpt-4o-mini',
     input: '日本語で「テスト出力です」と一文だけ返してください。',
     max_output_tokens: 200
   };
