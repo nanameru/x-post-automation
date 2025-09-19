@@ -12,9 +12,7 @@ async function main() {
 
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-    ...(org ? { 'OpenAI-Organization': org } : {}),
-    ...(project ? { 'OpenAI-Project': project } : {})
+    'Content-Type': 'application/json'
   };
 
   const prompt = `
@@ -48,7 +46,7 @@ Awesome curated list for data engineers. Links to books, communities, newsletter
 出力: 本文のみ（1つ）。先頭/末尾の空白なし。`;
 
   const body = {
-    model: 'gpt-4o-mini',
+    model: 'gpt-5',
     input: prompt,
     max_output_tokens: 200
   };

@@ -304,15 +304,13 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
         console.log(`🧪 OpenAI via fetch (org=${org ? 'set' : 'unset'}, project=${project ? 'set' : 'unset'})`);
         const headers = {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-          ...(org ? { 'OpenAI-Organization': org } : {}),
-          ...(project ? { 'OpenAI-Project': project } : {})
+          'Content-Type': 'application/json'
         };
         const resp = await fetch('https://api.openai.com/v1/responses', {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'gpt-5',
             input: prompt,
             reasoning: { effort: 'low' },
             max_output_tokens: 150
