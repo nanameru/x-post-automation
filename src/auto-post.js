@@ -106,6 +106,7 @@ class GitHubTrendingBot {
           const encryptedBytes = sodium.seal(messageBytes, keyBytes);
           const encryptedValue = Buffer.from(encryptedBytes).toString('base64');
 
+          console.log('🔐 Attempting to rotate repo secret X_OAUTH2_REFRESH_TOKEN...');
           const putResp = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/actions/secrets/X_OAUTH2_REFRESH_TOKEN`, {
             method: 'PUT',
             headers: {
@@ -121,7 +122,15 @@ class GitHubTrendingBot {
             const putErr = await putResp.text();
             console.warn('⚠️ Failed to update secret:', putResp.status, putErr);
           } else {
-            console.log('🔁 Updated GitHub secret: X_OAUTH2_REFRESH_TOKEN');
+            // 201: created, 204: updated. Value自体は取得不可だが、更新成否はHTTPステータスで判定
+            if (putResp.status === 201) {
+              console.log('🔁 GitHub secret created: X_OAUTH2_REFRESH_TOKEN (201)');
+            } else if (putResp.status === 204) {
+              console.log('🔁 GitHub secret updated: X_OAUTH2_REFRESH_TOKEN (204)');
+            } else {
+              console.log(`🔁 GitHub secret update succeeded with status ${putResp.status}`);
+            }
+            console.log('ℹ️ Note: GitHub does not expose secret values; update verified by status code only');
           }
         } catch (se) {
           console.warn('⚠️ Secret rotation failed:', se.message);
