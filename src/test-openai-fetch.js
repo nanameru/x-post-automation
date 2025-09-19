@@ -20,7 +20,6 @@ async function main() {
   const body = {
     model: 'gpt-5',
     input: '日本語で「テスト出力です」と一文だけ返してください。',
-    "text.format": { type: 'text' },
     max_output_tokens: 200
   };
 

@@ -315,8 +315,7 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
             model: 'gpt-5',
             input: prompt,
             reasoning: { effort: 'low' },
-            max_output_tokens: 150,
-            "text.format": { type: 'text' }
+            max_output_tokens: 150
           })
         });
         const raw = await resp.text();
