@@ -87,7 +87,8 @@ class GitHubTrendingBot {
           }
           const repoOwner = process.env.GITHUB_REPOSITORY?.split('/')?.[0] || 'nanameru';
           const repoName = process.env.GITHUB_REPOSITORY?.split('/')?.[1] || 'x-post-automation';
-          const adminToken = process.env.GITHUB_SECRET_UPDATE_TOKEN || process.env.GITHUB_TOKEN;
+          // Prefer non-reserved secret name; fall back to legacy and GITHUB_TOKEN
+          const adminToken = process.env.SECRET_UPDATE_TOKEN || process.env.GITHUB_SECRET_UPDATE_TOKEN || process.env.GITHUB_TOKEN;
           if (!adminToken) {
             console.warn('⚠️ No admin token for secret update. Skipping.');
             return;

@@ -44,7 +44,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Optional: dedicated PAT with repo/actions:write to update secrets; else fallback to GITHUB_TOKEN
-          GITHUB_SECRET_UPDATE_TOKEN: ${{ secrets.GITHUB_SECRET_UPDATE_TOKEN }}
+          # Note: Secret names must not start with GITHUB_. Use SECRET_UPDATE_TOKEN instead.
+          SECRET_UPDATE_TOKEN: ${{ secrets.SECRET_UPDATE_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
