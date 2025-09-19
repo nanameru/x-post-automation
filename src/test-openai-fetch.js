@@ -17,9 +17,39 @@ async function main() {
     ...(project ? { 'OpenAI-Project': project } : {})
   };
 
+  const prompt = `
+あなたは短く鋭い日本語のテック投稿ライターです。次の情報から、指定の文体でポスト文を1つだけ作ってください。
+
+文体の条件:
+- 冒頭は「<主体>が<何をしていて>面白い。」で始める
+- 2〜3文、最大260文字。絵文字・ハッシュタグなし。丁寧でカジュアル
+- 「これを〜しておけば、〜から〜できる」の型を1回含める（例: これをブックマークしておけば、必要な領域から最短で要点に届く）
+- 誇張や断定を避け、事実ベースで端的に価値を示す（「最高」「すごく良い」等の主観の重複は避ける）
+- URLは本文に入れない（本文の直後に改行し、コード側でURLを1行付ける）
+
+主体の決め方:
+- owner/repo から自然な主語（owner か repo 名）を選ぶ
+
+特別な書き分け（リソース集/リンク集の場合）:
+- 説明やREADMEに awesome/curated/list/resources/book/community/newsletter などの語が多い場合は、
+  - 対象読者（例: データエンジニア）を一語で明示
+  - カバー範囲を2〜3種だけ具体的に列挙（例: 書籍・コミュニティ・ニュースレター）
+  - 主観を減らし、網羅性/整理度/継続更新などの事実を簡潔に示す
+
+素材:
+- リポジトリ名: OWNER/REPO
+- 説明: curated resources for data engineering (books, communities, newsletters, videos, blogs)
+- 言語: Various
+- スター数: 9999
+
+README抜粋（参考用・引用はしない）:
+Awesome curated list for data engineers. Links to books, communities, newsletters, videos, blogs, and learning paths.
+
+出力: 本文のみ（1つ）。先頭/末尾の空白なし。`;
+
   const body = {
     model: 'gpt-4o-mini',
-    input: '日本語で「テスト出力です」と一文だけ返してください。',
+    input: prompt,
     max_output_tokens: 200
   };
 
