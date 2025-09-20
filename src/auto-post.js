@@ -294,7 +294,7 @@ ${repoDetails?.readme || 'README情報なし'}
 
 出力: 本文のみ（1つ）。先頭/末尾の空白なし。`;
 
-    const maxAttempts = 3;
+    const maxAttempts = 4; // 初回1回 + リトライ3回
     attemptLoop: for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         console.log(`🧪 OpenAI request (attempt ${attempt}/${maxAttempts}): model=gpt-5, max_output_tokens=2000`);
@@ -315,7 +315,7 @@ ${repoDetails?.readme || 'README情報なし'}
           body: JSON.stringify({
             model: 'gpt-5',
             input: prompt,
-            reasoning: { effort: 'low' },
+            reasoning: { effort: 'high' },
             max_output_tokens: 2000
           })
         });
