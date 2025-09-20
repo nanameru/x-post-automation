@@ -345,33 +345,134 @@ ${repoDetails?.readme || 'README情報なし'}
         const outputText = (response?.output_text ?? '').trim();
         if (outputText) {
           console.log(`🧪 OpenAI output_text length=${outputText.length} (attempt ${attempt})`);
+          // Enforce ~130 chars: if longer, try one strict regeneration
+          if (outputText.length <= 130) return outputText;
+          console.log(`✂️ Output too long (${outputText.length} chars). Requesting strict 130-char rewrite...`);
+          const strictPrompt = `${prompt}\n\n追加制約: 必ず全体を130文字以内にする。句点は最大2つ。冗長語を削る。条件違反時は自動で短縮。`;
+          const refResp = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              model: 'gpt-5',
+              input: strictPrompt,
+              reasoning: { effort: 'low' },
+              max_output_tokens: 2000
+            })
+          });
+          const refRaw = await refResp.text();
+          if (refResp.ok) {
+            let refJson = {};
+            try { refJson = refRaw ? JSON.parse(refRaw) : {}; } catch {}
+            const refPrimary = (refJson?.output_text ?? '').trim();
+            if (refPrimary) {
+              console.log(`✂️ Strict rewrite length=${refPrimary.length}`);
+              return refPrimary;
+            }
+            const refOut = Array.isArray(refJson?.output) ? refJson.output : [];
+            for (const item2 of refOut) {
+              const arr2 = Array.isArray(item2?.content) ? item2.content : [];
+              for (const c2 of arr2) {
+                const t2 = (typeof c2 === 'string') ? c2.trim() : (typeof c2?.text === 'string' ? c2.text.trim() : '');
+                if (t2) {
+                  console.log(`✂️ Strict rewrite (content) length=${t2.length}`);
+                  return t2;
+                }
+              }
+            }
+          } else {
+            console.warn('✂️ Strict rewrite request failed:', refResp.status, refRaw.slice(0, 300));
+          }
           return outputText;
         }
 
-        // Responses API canonical path: output[].content[].text (handle multiple shapes)
+        // Responses API canonical path: output[].content[].text
         const outputs = Array.isArray(response?.output) ? response.output : [];
         for (const item of outputs) {
-          const contentArr = Array.isArray(item?.content) ? item.content : [];
-          for (const c of contentArr) {
-            // Object with explicit type and text
-            if (c && typeof c === 'object') {
-              if ((c?.type === 'output_text' || c?.type === 'text') && typeof c?.text === 'string' && c.text.trim()) {
+          // Prefer message items
+          if (item?.type === 'message' && Array.isArray(item.content)) {
+            for (const c of item.content) {
+              if (c?.type === 'output_text' && typeof c.text === 'string' && c.text.trim()) {
                 const text = c.text.trim();
-                console.log(`🧪 OpenAI content object used (type=${c.type}), length=${text.length} (attempt ${attempt})`);
+                console.log(`🧪 OpenAI output[].content path used, length=${text.length} (attempt ${attempt})`);
+                if (text.length <= 130) return text;
+                console.log(`✂️ Output too long (${text.length} chars). Requesting strict 130-char rewrite...`);
+                const strictPrompt = `${prompt}\n\n追加制約: 必ず全体を130文字以内にする。句点は最大2つ。冗長語を削る。条件違反時は自動で短縮。`;
+                const refResp = await fetch('https://api.openai.com/v1/responses', {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    model: 'gpt-5',
+                    input: strictPrompt,
+                    reasoning: { effort: 'low' },
+                    max_output_tokens: 2000
+                  })
+                });
+                const refRaw = await refResp.text();
+                if (refResp.ok) {
+                  let refJson = {};
+                  try { refJson = refRaw ? JSON.parse(refRaw) : {}; } catch {}
+                  const refPrimary = (refJson?.output_text ?? '').trim();
+                  if (refPrimary) {
+                    console.log(`✂️ Strict rewrite length=${refPrimary.length}`);
+                    return refPrimary;
+                  }
+                  const refOut = Array.isArray(refJson?.output) ? refJson.output : [];
+                  for (const item2 of refOut) {
+                    const arr2 = Array.isArray(item2?.content) ? item2.content : [];
+                    for (const c2 of arr2) {
+                      const t2 = (typeof c2 === 'string') ? c2.trim() : (typeof c2?.text === 'string' ? c2.text.trim() : '');
+                      if (t2) {
+                        console.log(`✂️ Strict rewrite (content) length=${t2.length}`);
+                        return t2;
+                      }
+                    }
+                  }
+                } else {
+                  console.warn('✂️ Strict rewrite request failed:', refResp.status, refRaw.slice(0, 300));
+                }
                 return text;
               }
-              // Fallback: any object with a string 'text'
-              if (typeof c?.text === 'string' && c.text.trim()) {
-                const text = c.text.trim();
-                console.log(`🧪 OpenAI content object text used, length=${text.length} (attempt ${attempt})`);
+              if (typeof c === 'string' && c.trim()) {
+                const text = c.trim();
+                console.log(`🧪 OpenAI output[].content string used, length=${text.length} (attempt ${attempt})`);
+                if (text.length <= 130) return text;
+                console.log(`✂️ Output too long (${text.length} chars). Requesting strict 130-char rewrite...`);
+                const strictPrompt = `${prompt}\n\n追加制約: 必ず全体を130文字以内にする。句点は最大2つ。冗長語を削る。条件違反時は自動で短縮。`;
+                const refResp = await fetch('https://api.openai.com/v1/responses', {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    model: 'gpt-5',
+                    input: strictPrompt,
+                    reasoning: { effort: 'low' },
+                    max_output_tokens: 2000
+                  })
+                });
+                const refRaw = await refResp.text();
+                if (refResp.ok) {
+                  let refJson = {};
+                  try { refJson = refRaw ? JSON.parse(refRaw) : {}; } catch {}
+                  const refPrimary = (refJson?.output_text ?? '').trim();
+                  if (refPrimary) {
+                    console.log(`✂️ Strict rewrite length=${refPrimary.length}`);
+                    return refPrimary;
+                  }
+                  const refOut = Array.isArray(refJson?.output) ? refJson.output : [];
+                  for (const item2 of refOut) {
+                    const arr2 = Array.isArray(item2?.content) ? item2.content : [];
+                    for (const c2 of arr2) {
+                      const t2 = (typeof c2 === 'string') ? c2.trim() : (typeof c2?.text === 'string' ? c2.text.trim() : '');
+                      if (t2) {
+                        console.log(`✂️ Strict rewrite (content) length=${t2.length}`);
+                        return t2;
+                      }
+                    }
+                  }
+                } else {
+                  console.warn('✂️ Strict rewrite request failed:', refResp.status, refRaw.slice(0, 300));
+                }
                 return text;
               }
-            }
-            // Content as plain string
-            if (typeof c === 'string' && c.trim()) {
-              const text = c.trim();
-              console.log(`🧪 OpenAI content string used, length=${text.length} (attempt ${attempt})`);
-              return text;
             }
           }
         }
@@ -382,6 +483,42 @@ ${repoDetails?.readme || 'README情報なし'}
         const choiceText = (choicePrimary ?? choiceAlt ?? '').toString().trim();
         if (choiceText) {
           console.log(`🧪 OpenAI choices path used, length=${choiceText.length} (attempt ${attempt})`);
+          if (choiceText.length <= 130) return choiceText;
+          console.log(`✂️ Output too long (${choiceText.length} chars). Requesting strict 130-char rewrite...`);
+          const strictPrompt = `${prompt}\n\n追加制約: 必ず全体を130文字以内にする。句点は最大2つ。冗長語を削る。条件違反時は自動で短縮。`;
+          const refResp = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              model: 'gpt-5',
+              input: strictPrompt,
+              reasoning: { effort: 'low' },
+              max_output_tokens: 2000
+            })
+          });
+          const refRaw = await refResp.text();
+          if (refResp.ok) {
+            let refJson = {};
+            try { refJson = refRaw ? JSON.parse(refRaw) : {}; } catch {}
+            const refPrimary = (refJson?.output_text ?? '').trim();
+            if (refPrimary) {
+              console.log(`✂️ Strict rewrite length=${refPrimary.length}`);
+              return refPrimary;
+            }
+            const refOut = Array.isArray(refJson?.output) ? refJson.output : [];
+            for (const item2 of refOut) {
+              const arr2 = Array.isArray(item2?.content) ? item2.content : [];
+              for (const c2 of arr2) {
+                const t2 = (typeof c2 === 'string') ? c2.trim() : (typeof c2?.text === 'string' ? c2.text.trim() : '');
+                if (t2) {
+                  console.log(`✂️ Strict rewrite (content) length=${t2.length}`);
+                  return t2;
+                }
+              }
+            }
+          } else {
+            console.warn('✂️ Strict rewrite request failed:', refResp.status, refRaw.slice(0, 300));
+          }
           return choiceText;
         }
 
