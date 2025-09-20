@@ -296,7 +296,7 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        console.log(`🧪 OpenAI request (attempt ${attempt}/${maxAttempts}): model=gpt-5, max_output_tokens=150`);
+        console.log(`🧪 OpenAI request (attempt ${attempt}/${maxAttempts}): model=gpt-5, max_output_tokens=2000`);
         console.log(`🧪 Prompt preview: ${prompt.slice(0, 180).replace(/\n/g, ' ')}...`);
 
         const org = process.env.OPENAI_ORG;
@@ -315,7 +315,7 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
             model: 'gpt-5',
             input: prompt,
             reasoning: { effort: 'low' },
-            max_output_tokens: 150
+            max_output_tokens: 2000
           })
         });
         const raw = await resp.text();
@@ -326,28 +326,51 @@ ${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
         let response;
         try { response = raw ? JSON.parse(raw) : {}; } catch { response = {}; }
 
+        // Diagnostics: status and usage to help debug empty outputs
+        const respStatus = response?.status;
+        const usage = response?.usage;
+        if (respStatus) console.log(`🧪 OpenAI response status=${respStatus}`);
+        if (usage) {
+          const inTok = usage?.input_tokens;
+          const outTok = usage?.output_tokens;
+          const reasonTok = usage?.output_tokens_details?.reasoning_tokens;
+          console.log(`🧪 OpenAI usage: input=${inTok ?? 'n/a'}, output=${outTok ?? 'n/a'}, reasoning=${reasonTok ?? 'n/a'}`);
+        }
+        if (respStatus && respStatus !== 'completed') {
+          const reason = response?.incomplete_details?.reason;
+          if (reason) console.log(`🟡 OpenAI incomplete reason=${reason}`);
+        }
+
         const outputText = (response?.output_text ?? '').trim();
         if (outputText) {
           console.log(`🧪 OpenAI output_text length=${outputText.length} (attempt ${attempt})`);
           return outputText;
         }
 
-        // Responses API canonical path: output[].content[].text
+        // Responses API canonical path: output[].content[].text (handle multiple shapes)
         const outputs = Array.isArray(response?.output) ? response.output : [];
         for (const item of outputs) {
-          // Prefer message items
-          if (item?.type === 'message' && Array.isArray(item.content)) {
-            for (const c of item.content) {
-              if (c?.type === 'output_text' && typeof c.text === 'string' && c.text.trim()) {
+          const contentArr = Array.isArray(item?.content) ? item.content : [];
+          for (const c of contentArr) {
+            // Object with explicit type and text
+            if (c && typeof c === 'object') {
+              if ((c?.type === 'output_text' || c?.type === 'text') && typeof c?.text === 'string' && c.text.trim()) {
                 const text = c.text.trim();
-                console.log(`🧪 OpenAI output[].content path used, length=${text.length} (attempt ${attempt})`);
+                console.log(`🧪 OpenAI content object used (type=${c.type}), length=${text.length} (attempt ${attempt})`);
                 return text;
               }
-              if (typeof c === 'string' && c.trim()) {
-                const text = c.trim();
-                console.log(`🧪 OpenAI output[].content string used, length=${text.length} (attempt ${attempt})`);
+              // Fallback: any object with a string 'text'
+              if (typeof c?.text === 'string' && c.text.trim()) {
+                const text = c.text.trim();
+                console.log(`🧪 OpenAI content object text used, length=${text.length} (attempt ${attempt})`);
                 return text;
               }
+            }
+            // Content as plain string
+            if (typeof c === 'string' && c.trim()) {
+              const text = c.trim();
+              console.log(`🧪 OpenAI content string used, length=${text.length} (attempt ${attempt})`);
+              return text;
             }
           }
         }
