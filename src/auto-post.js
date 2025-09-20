@@ -297,7 +297,7 @@ ${repoDetails?.readme || 'README情報なし'}
     const maxAttempts = 4; // 初回1回 + リトライ3回
     attemptLoop: for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        console.log(`🧪 OpenAI request (attempt ${attempt}/${maxAttempts}): model=gpt-5, max_output_tokens=2000`);
+        console.log(`🧪 OpenAI request (attempt ${attempt}/${maxAttempts}): model=gpt-5, max_output_tokens=10000`);
         console.log(`🧪 Prompt preview: ${prompt.slice(0, 180).replace(/\n/g, ' ')}...`);
 
         const org = process.env.OPENAI_ORG;
@@ -316,7 +316,7 @@ ${repoDetails?.readme || 'README情報なし'}
             model: 'gpt-5',
             input: prompt,
             reasoning: { effort: 'high' },
-            max_output_tokens: 2000
+            max_output_tokens: 10000
           })
         });
         const raw = await resp.text();
