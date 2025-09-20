@@ -251,7 +251,7 @@ class GitHubTrendingBot {
 
       return {
         ...repo,
-        readme: readme.substring(0, 3000) // README を最初の3000文字に制限
+        readme: readme.substring(0, 10000) // README を最初の10000文字に拡張
       };
     } catch (error) {
       console.error(`❌ Error fetching repository details for ${owner}/${name}:`, error.message);
@@ -288,8 +288,8 @@ class GitHubTrendingBot {
 - 言語: ${trendingInfo.language}
 - スター数: ${trendingInfo.stars}
 
-README抜粋（参考用・引用はしない）:
-${repoDetails?.readme?.substring(0, 200) || 'README情報なし'}
+README全文（参考用・引用はしない）:
+${repoDetails?.readme || 'README情報なし'}
 
 出力: 本文のみ（1つ）。先頭/末尾の空白なし。`;
 
